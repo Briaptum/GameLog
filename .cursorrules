@@ -1,0 +1,70 @@
+# Cursor Rules for Julie Pogue Properties
+
+## CRITICAL: Never Use Browser Alert/Confirm Dialogs
+
+**NEVER use `alert()`, `confirm()`, or `prompt()` in this codebase.**
+
+This is a professional website. Browser-native dialogs are unprofessional and provide a poor user experience.
+
+### Instead, use:
+
+1. **For confirmations**: Use the `ConfirmationModal` component (`frontend/src/components/admin/ConfirmationModal.vue`)
+   ```vue
+   <ConfirmationModal
+     :isVisible="showModal"
+     title="Confirm Action"
+     message="Are you sure you want to proceed?"
+     confirmText="Confirm"
+     :danger="false"
+     @confirm="handleConfirm"
+     @cancel="showModal = false"
+   />
+   ```
+
+2. **For notifications**: Use the notification system via `inject`:
+   ```javascript
+   inject: ['showNotification'],
+   // Then use:
+   this.showNotification('Success message', 'success')
+   this.showNotification('Error message', 'error')
+   ```
+
+3. **For inline messages**: Use conditional rendering with error/success states in the template.
+
+### Examples of what NOT to do:
+- ❌ `alert('Error message')`
+- ❌ `confirm('Are you sure?')`
+- ❌ `prompt('Enter value')`
+
+### Examples of what TO do:
+- ✅ `this.showNotification('Error message', 'error')`
+- ✅ Use `ConfirmationModal` for confirmations
+- ✅ Inline error/success messages in forms
+
+## Image Fallbacks
+
+**NEVER use automatic fallback images.** If an image fails to load, let it show as broken so users can identify and fix the issue.
+
+- ❌ Don't use `onerror="this.src='/images/fallback.jpg'"`
+- ❌ Don't use `|| '/images/fallback.jpg'` in image src
+- ✅ Let broken images show as broken
+- ✅ Log errors to console for debugging: `console.error('Image failed to load:', src)`
+
+## Code Quality
+
+- Always use proper error handling
+- Use TypeScript-style type checking where possible
+- Follow Vue 3 Composition API patterns when appropriate
+- Keep components focused and reusable
+- Use Tailwind CSS for styling (no custom CSS unless absolutely necessary)
+
+## Simplicity and Directness
+
+**NEVER use fallback logic or try multiple approaches.** Do exactly what the user asks in the simplest way possible.
+
+- ❌ Don't try multiple path formats, multiple queries, or fallback approaches
+- ❌ Don't add "just in case" logic or defensive programming that tries multiple things
+- ✅ Do exactly what's needed, the simple way
+- ✅ If something doesn't work, fix the root cause instead of adding fallbacks
+- ✅ When the user says "it works now", remove any debugging/temporary code and keep it simple
+

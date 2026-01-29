@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "${BACKEND_PORT:-8004}:8080"  # Host port from env, defaults to 8004 -> Container port 8080
+    env_file:
+      - .env
+    environment:
+      - GIN_MODE=${GIN_MODE:-release}
+      - PROPERTIES_API_URL=${PROPERTIES_API_URL:-http://anhelm-api-prod:8080}
+    volumes:
+      - /app/tmp
+    networks:
+      - anhelm-network
+    restart: unless-stopped
+
+networks:
+  anhelm-network:
+    external: true

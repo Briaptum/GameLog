@@ -1,0 +1,139 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+      
+      - name: Deploy frontend to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "frontend/dist/*"
+          target: "/tmp/frontend-deploy"
+          strip_components: 2
+      
+      - name: Deploy backend and setup
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e  # Exit on error
+            
+            DEPLOY_DIR="/var/www/juliepogue.com"
+            
+            echo "🚀 Starting deployment..."
+            
+            # Navigate to deploy directory
+            cd "$DEPLOY_DIR" || {
+                echo "❌ Error: Directory $DEPLOY_DIR does not exist"
+                exit 1
+            }
+            
+            # Git operations - pull latest backend code
+            git fetch origin master
+            git reset --hard origin/master
+            
+            # Deploy frontend build
+            echo "🎨 Deploying frontend..."
+            mkdir -p /var/www/juliepogue.com/public
+            rm -rf /var/www/juliepogue.com/public/*
+            cp -r /tmp/frontend-deploy/* /var/www/juliepogue.com/public/
+            rm -rf /tmp/frontend-deploy
+            echo "✅ Frontend deployed"
+            
+            # Run database migrations
+            echo "🗄️  Running database migrations..."
+            if [ -f "$DEPLOY_DIR/.env" ]; then
+                # Source the .env file to get database variables
+                export $(grep -v '^#' "$DEPLOY_DIR/.env" | grep -v '^$$' | xargs)
+                
+                # Build DATABASE_URL from individual variables
+                if [ ! -z "$DB_HOST" ] && [ ! -z "$DB_USER" ] && [ ! -z "$DB_PASSWORD" ] && [ ! -z "$DB_NAME" ]; then
+                    DB_PORT=${DB_PORT:-5432}
+                    DB_SSLMODE=${DB_SSLMODE:-require}
+                    
+                    # Build PostgreSQL connection URL
+                    DB_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}"
+                    
+                    # Use migrate tool via Docker if available
+                    docker run --rm \
+                        -v "$DEPLOY_DIR/backend/migrations:/migrations" \
+                        --network host \
+                        migrate/migrate \
+                        -path /migrations \
+                        -database "$DB_URL" \
+                        up || {
+                        echo "⚠️  Warning: Migration failed or no migrations to run"
+                    }
+                    echo "✅ Migrations complete"
+                else
+                    echo "⚠️  Warning: Database variables (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) not found in .env, skipping migrations"
+                fi
+            else
+                echo "⚠️  Warning: .env file not found, skipping migrations"
+            fi
+            
+            # Restart Docker containers
+            echo "🐳 Restarting Docker containers..."
+            cd "$DEPLOY_DIR" || {
+                echo "❌ Error: Failed to change to deploy directory"
+                exit 1
+            }
+            
+            # Verify backend directory exists
+            if [ ! -d "backend" ]; then
+                echo "❌ Error: backend directory not found in $DEPLOY_DIR"
+                ls -la
+                exit 1
+            fi
+            
+            echo "📦 Building Docker containers..."
+            docker-compose -f docker-compose.prod.yml down || true
+            
+            # Build from the root directory explicitly
+            docker-compose -f docker-compose.prod.yml build --no-cache --progress=plain 2>&1 || {
+                echo "❌ Error: Failed to build Docker containers"
+                echo "Current directory: $(pwd)"
+                echo "Backend directory exists: $([ -d backend ] && echo 'yes' || echo 'no')"
+                exit 1
+            }
+            
+            docker-compose -f docker-compose.prod.yml up -d || {
+                echo "❌ Error: Failed to start Docker containers"
+                exit 1
+            }
+            echo "✅ Docker containers restarted"
+            
+            echo "🎉 Deployment complete!"
+
+# GitHub Secrets Required:
+# DEPLOY_HOST: Your server IP address
+# DEPLOY_USER: root (or your deploy user)
+# DEPLOY_SSH_KEY: Your private SSH key (the private key that matches your public key on the server)
+

@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-website-dummy}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.backend
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"  # Host port from env, defaults to 8080 -> Container port 8080
+    env_file:
+      - .env
+    volumes:
+      - ./backend/internal:/app/internal
+      - ./backend/main.go:/app/main.go
+      - ./backend/go.mod:/app/go.mod
+      - ./backend/go.sum:/app/go.sum
+      - /app/tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=${NODE_ENV:-development}
+      - SITE_URL=${SITE_URL:-http://localhost:8080}
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
