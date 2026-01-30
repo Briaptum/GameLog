@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-black: #211F1E;
+  --color-brand-green: #32694E;
+  --color-brand-red: #D02752;
+}
+
 body {
   margin: 0;
   font-family: 'Raleway', sans-serif;
