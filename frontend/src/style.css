@@ -1,61 +1,12 @@
 @import "tailwindcss";
 
-@theme {
-  --color-brand-black: #040404;
-  --color-brand-red: #FF204E;
-  --color-brand-dark-red: #A0153E;
-}
-
 body {
   margin: 0;
   font-family: 'Raleway', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #040404;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Cinzel', serif;
-}
-
-
-/* Page Transition Styles */
-.page-fade-enter-active,
-.page-fade-leave-active {
-  transition: opacity 0.4s ease-in-out;
-}
-
-.page-fade-enter-from,
-.page-fade-leave-to {
-  opacity: 0;
-}
-
-/* Image Loading Placeholders - prevent layout shift */
-/* Only apply default sizing to images without any Tailwind sizing classes */
-/* Images with w-*, h-*, object-* classes will use their Tailwind styles */
-img:not([class*="w-"]):not([class*="h-"]):not([class*="object-"]) {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Aspect ratio containers for hero images */
-.hero-image-container {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-}
-
-.hero-image-container::before {
-  content: '';
-  display: block;
-  padding-top: 56.25%; /* 16:9 aspect ratio default */
-}
-
-.hero-image-container img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
